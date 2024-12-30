@@ -1,0 +1,13 @@
+{
+  "name": "ini",
+  "version": "0.0.0",
+  "description": "The current version is a primitive version. every part will be break change in soon.",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "dprint": "^0.48.0",
+    "typescript": "^5.7.2"
+  }
+}
