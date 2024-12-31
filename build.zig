@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 // zig build system guide
 // https://ziglang.org/learn/build-system/
@@ -10,7 +11,6 @@ pub fn build(b: *std.Build) void {
         .zig_ini_test = b.step("zig-ini:test", "Run zig-ini unit test"),
         .bindings_wasm = b.step("bindings:wasm", "Build wasm bindings"),
     };
-
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const zig_ini_module = build_zig_ini_module(b);
@@ -44,15 +44,19 @@ fn build_wasm_bindings(
     },
 ) void {
     const wasm_bindings_generate = b.addExecutable(.{
-        .name = "wasm_bindings",
+        .name = "zig-ini",
         .root_source_file = b.path("bindings/wasm/wasm_bindings.zig"),
-        .target = options.target,
-        .optimize = options.optimize,
+        .target = b.resolveTargetQuery(.{
+            .os_tag = .freestanding,
+            .cpu_arch = .wasm32,
+        }),
+        .optimize = .ReleaseSmall,
     });
+
     wasm_bindings_generate.root_module.addImport("zig-ini", options.zig_ini_module);
-    // const run_wasm_bindings = b.addRunArtifact(wasm_bindings_generate);
-    // b.installArtifact(wasm_bindings_generate);
-    // b.addInstallArtifact(wasm, options: Step.InstallArtifact.Options)
+    wasm_bindings_generate.rdynamic = true;
+    wasm_bindings_generate.entry = .disabled;
+
     step_wasm_bindings.dependOn(&b.addInstallArtifact(wasm_bindings_generate, .{}).step);
 }
 
@@ -74,8 +78,18 @@ fn build_zig_ini_test(
     step_zig_ini_test.dependOn(&run_ini_unit_test.step);
 }
 
-fn resolve_target(b: *std.Build) !std.Build.ResolvedTarget {
-    const cpus = .{};
-    _ = cpus; // autofix
-    return b.resolveTargetQuery();
-}
+//  !std.Build.ResolvedTarget
+// fn resolve_target(b: *std.Build) std.Build.ResolvedTarget {
+//     const targets: []const std.Target.Query = &.{
+//         .{ .cpu_arch = .aarch64, .os_tag = .macos },
+//         .{ .cpu_arch = .x86_64, .os_tag = .linux },
+//         .{ .cpu_arch = .x86_64, .os_tag = .windows },
+//         .{ .cpu_arch = .aarch64, .os_tag = .windows },
+//         .{ .cpu_arch = .wasm32, .os_tag = .freestanding },
+//     };
+//     for (targets) |query| {
+//         if (builtin.target.os.tag == query.os_tag and builtin.target.cpu.arch == query.cpu_arch) {
+//             return b.resolveTargetQuery(query);
+//         }
+//     }
+// }
