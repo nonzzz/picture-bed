@@ -95,9 +95,16 @@ pub const Parse = struct {
                 Token.Kind.equal => {
                     _ = self.eat(Token.Kind.whitespace);
                     _ = self.eat(Token.Kind.string);
-                    const value_token = self.current();
-                    const value_raw = self.decode_text();
-                    node.base.loc.end = Loc.create(value_token.line_number, value_token.end, value_token.end + value_raw.len);
+                    const value_begin = self.current();
+                    while (self.current().kind != Token.Kind.break_line) {
+                        if (self.peek().kind == Token.Kind.end_of_file) {
+                            break;
+                        }
+                        self.advance();
+                    }
+                    const value_end = self.current();
+                    const value_raw = self.source[value_begin.start..value_end.end];
+                    node.base.loc.end = Loc.create(value_begin.line_number, value_begin.start, value_end.end + value_raw.len);
                     node.decl = Node.Identifer{
                         .value = key_raw,
                     };
@@ -218,7 +225,7 @@ pub const Parse = struct {
         return self.tokens[self.pos];
     }
     inline fn peek(self: *Self) Token {
-        if (self.pos >= self.tokens.len) {
+        if (self.pos >= self.tokens.len - 1) {
             return Token.init();
         }
         return self.tokens[self.pos + 1];
@@ -250,27 +257,12 @@ fn TestParse(fixture_name: []const u8, allocator: Allocator, expects: []const No
     try parse.parse(content);
 
     if (expects.len > 0) {
-        // std.debug.print("{any}\n", .{parse.ast.nodes.items.len});
-        // for (parse.ast.nodes.items) |n| {
-        //     switch (n.kind) {
-        //         .pairs => {
-        //             const p: *Node.Pairs = @fieldParentPtr("base", n);
-        //             std.debug.print("decl={s} -- init={s}\r\n", .{ p.decl.value, p.init.value });
-        //         },
-        //         .section => {
-        //             const p: *Node.Section = @fieldParentPtr("base", n);
-        //             std.debug.print("section name --- {s}\r\n", .{p.name.value});
-        //         },
-        //         else => {},
-        //     }
-        // }
-        // std.debug.assert(parse.ast.nodes.items.len >= expects.len);
+        std.debug.assert(parse.ast.nodes.items.len >= expects.len);
         for (expects, 0..) |expect, idx| {
             try std.testing.expectEqual(expect, parse.ast.nodes.items[idx].kind);
         }
     }
     if (comments.len > 0) {
-        // std.debug.print("{any}\n", .{parse.ast.comments.items});
         std.debug.assert(parse.ast.comments.items.len >= comments.len);
         for (comments, 0..) |expect, idx| {
             try std.testing.expectEqual(expect, parse.ast.comments.items[idx].kind);

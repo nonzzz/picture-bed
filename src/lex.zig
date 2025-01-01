@@ -46,6 +46,7 @@ inline fn skip_not_valid_sequence(c: i32) bool {
         ']' => return true,
         ':', '=' => return true,
         '\r', '\n' => return true,
+        ' ', '\t' => return true,
         else => return false,
     }
 }
@@ -200,23 +201,19 @@ pub const Lex = struct {
                     self.step();
                 },
                 else => {
-                    self.token.kind = self.consume_str();
+                    while (true) {
+                        if (skip_not_valid_sequence(self.code_point)) {
+                            break;
+                        }
+                        self.step();
+                    }
+                    self.token.kind = Token.Kind.string;
                 },
             }
             self.token.end = if (self.index + 1 <= self.buffer.len) self.index - 1 else self.index;
             self.token.line_number = self.line_number;
             return;
         }
-    }
-
-    fn consume_str(self: *Self) Token.Kind {
-        while (true) {
-            if (skip_not_valid_sequence(self.code_point)) {
-                break;
-            }
-            self.step();
-        }
-        return Token.Kind.string;
     }
 };
 
