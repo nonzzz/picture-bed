@@ -45,7 +45,6 @@ inline fn skip_not_valid_sequence(c: i32) bool {
         '[' => return true,
         ']' => return true,
         ':', '=' => return true,
-        '\r', '\n' => return true,
         ' ', '\t' => return true,
         else => return false,
     }
@@ -129,9 +128,13 @@ pub const Lex = struct {
             0 => self.code_point = -1,
             else => self.code_point = cp.code_point,
         }
-        if (cp.code_point == '\n') {
-            self.line_number += 1;
+    }
+
+    inline fn peek(self: *Self) i32 {
+        if (self.index >= self.buffer.len) {
+            return -1;
         }
+        return self.buffer[self.index - 1];
     }
 
     pub inline fn next(self: *Self) !void {
@@ -149,6 +152,9 @@ pub const Lex = struct {
                 },
                 '\r', '\n' => {
                     while (self.code_point == '\r' or self.code_point == '\n') {
+                        if (self.code_point == '\n') {
+                            self.line_number += 1;
+                        }
                         self.step();
                     }
                     self.token.kind = .break_line;
@@ -166,10 +172,12 @@ pub const Lex = struct {
                     self.step();
                     loop: while (true) {
                         switch (self.code_point) {
-                            -1, '\r', '\n' => {
-                                break :loop;
-                            },
+                            -1,
+                            => break :loop,
                             else => {
+                                if (self.peek() == '\r' or self.peek() == '\n') {
+                                    break :loop;
+                                }
                                 self.step();
                             },
                         }
@@ -181,10 +189,14 @@ pub const Lex = struct {
                     self.step();
                     loop: while (true) : (self.step()) {
                         switch (self.code_point) {
-                            -1, '\r', '\n' => {
-                                break :loop;
-                            },
+                            -1 => break :loop,
+                            // '\r', '\n' => {
+                            //     break :loop;
+                            // },
                             else => {
+                                if (self.peek() == '\r' or self.peek() == '\n') {
+                                    break :loop;
+                                }
                                 if (self.code_point == quote) {
                                     self.step();
                                     self.token.kind = .string;
@@ -202,6 +214,9 @@ pub const Lex = struct {
                 },
                 else => {
                     while (true) {
+                        if (self.peek() == '\r' or self.peek() == '\n') {
+                            break;
+                        }
                         if (skip_not_valid_sequence(self.code_point)) {
                             break;
                         }

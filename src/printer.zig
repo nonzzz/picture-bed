@@ -16,12 +16,13 @@ fn line_less_than(_: @TypeOf(.{}), a: *Node, b: *Node) bool {
     return a.loc.line < b.loc.line;
 }
 
-// Note: I have no time to implement a pretty printer. so this impl is opinionated.
 pub const Printer = struct {
     const Self = @This();
     allocator: Allocator,
     sb: StringBuilder,
     fmt_options: FmtOptions,
+    prev_line: usize = 1,
+    need_insert_whitespace: bool = false,
     pub fn init(allocator: Allocator, options: FmtOptions) Self {
         return Self{
             .allocator = allocator,
@@ -33,30 +34,15 @@ pub const Printer = struct {
         self.sb.deinit();
     }
     pub fn stringify(self: *Self, input: AST) anyerror!void {
-        // var combined_nodes: ArrayListUnmanaged(*Node) = .{};
+        var combined_nodes: ArrayListUnmanaged(*Node) = .{};
 
-        // defer {
-        //     for (combined_nodes.items) |n| {
-        //         n.deinit(self.allocator);
-        //     }
-        //     combined_nodes.deinit(self.allocator);
-        // }
+        defer combined_nodes.deinit(self.allocator);
 
-        // var cloned_nodes = try input.nodes.clone(self.allocator);
+        try combined_nodes.appendSlice(self.allocator, input.nodes.items);
+        try combined_nodes.appendSlice(self.allocator, input.comments.items);
 
-        // defer {
-        //     for (cloned_nodes.items) |cloned_node| {
-        //         cloned_node.deinit(self.allocator);
-        //     }
-        //     cloned_nodes.deinit(self.allocator);
-        // }
-        // const cloned_comments = try input.comments.clone(self.allocator);
-        // _ = cloned_comments; // autofix
-        // try combined_nodes.appendSlice(self.allocator, cloned_nodes.items);
-        // try combined_nodes.appendSlice(self.allocator, cloned_comments.items);
-
-        // std.mem.sort(*Node, combined_nodes.items, .{}, line_less_than);
-        for (input.nodes.items) |node| {
+        std.mem.sort(*Node, combined_nodes.items, .{}, line_less_than);
+        for (combined_nodes.items) |node| {
             try self.print_node(node);
         }
 
@@ -82,6 +68,7 @@ pub const Printer = struct {
             try self.print(p.init.value[1..(p.init.value.len - 1)]);
             try self.print(quote);
         }
+        self.need_insert_whitespace = true;
     }
     inline fn print_section(self: *Self, node: *Node) anyerror!void {
         const p: *Node.Section = @fieldParentPtr("base", node);
@@ -94,7 +81,8 @@ pub const Printer = struct {
     }
 
     fn print_node(self: *Self, node: *Node) anyerror!void {
-        if (node.loc.line >= 1) {
+        if (node.loc.line != self.prev_line) {
+            self.need_insert_whitespace = false;
             try self.print('\n');
         }
         switch (node.kind) {
@@ -106,11 +94,15 @@ pub const Printer = struct {
                     .hash => "#",
                 };
                 const p: *Node.Comment = @fieldParentPtr("base", node);
+                if (self.need_insert_whitespace) {
+                    try self.print(" ");
+                }
                 try self.print(ch);
-                try self.print(p.text);
+                try self.print(p.text[1..]);
             },
             else => unreachable,
         }
+        self.prev_line = node.loc.line;
     }
     inline fn print(self: *Self, data: anytype) anyerror!void {
         try self.sb.write(data);
@@ -176,7 +168,8 @@ fn TestPrinter(fixture_name: []const u8, allocator: Allocator) !void {
     var printer = Printer.init(allocator, .{});
     defer printer.deinit();
     try printer.stringify(parse.ast);
-    // std.debug.print("{s}", .{printer.sb.s.items});
+
+    std.debug.print("{s}", .{printer.sb.s.items});
 }
 
 test "Printer" {

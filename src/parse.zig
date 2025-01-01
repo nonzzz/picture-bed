@@ -101,7 +101,12 @@ pub const Parse = struct {
                             .break_line => break,
                             .end_of_file => break,
                             .comment => break,
-                            else => self.advance(),
+                            else => {
+                                if (value_begin.kind == .string and (value_begin.flag == .single_quote or value_begin.flag == .double_quote)) {
+                                    break;
+                                }
+                                self.advance();
+                            },
                         }
                     }
                     const value_end = self.current();
@@ -269,10 +274,10 @@ fn TestParse(fixture_name: []const u8, allocator: Allocator, expects: []const No
 }
 
 test "Parse" {
-    // try TestParse("base.ini", std.testing.allocator, &[_]Node.NodeKind{ .pairs, .pairs, .pairs }, &[_]Node.NodeKind{});
+    try TestParse("base.ini", std.testing.allocator, &[_]Node.NodeKind{ .pairs, .pairs, .pairs }, &[_]Node.NodeKind{});
     try TestParse("comment.ini", std.testing.allocator, &[_]Node.NodeKind{.pairs}, &[_]Node.NodeKind{
         .comment,
         .comment,
     });
-    // try TestParse("section.ini", std.testing.allocator, &[_]Node.NodeKind{.section}, &[_]Node.NodeKind{});
+    try TestParse("section.ini", std.testing.allocator, &[_]Node.NodeKind{.section}, &[_]Node.NodeKind{});
 }
