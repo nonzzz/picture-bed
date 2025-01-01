@@ -139,27 +139,27 @@ pub const Lex = struct {
             self.token = Token.init();
             self.token.start = self.index - 1;
             switch (self.code_point) {
-                -1 => self.token.kind = Token.Kind.end_of_file,
+                -1 => self.token.kind = .end_of_file,
                 ' ', '\t' => {
                     self.step();
                     while (is_whitespace(self.code_point)) {
                         self.step();
                     }
-                    self.token.kind = Token.Kind.whitespace;
+                    self.token.kind = .whitespace;
                 },
                 '\r', '\n' => {
                     while (self.code_point == '\r' or self.code_point == '\n') {
                         self.step();
                     }
-                    self.token.kind = Token.Kind.break_line;
+                    self.token.kind = .break_line;
                 },
                 '[' => {
                     self.step();
-                    self.token.kind = Token.Kind.open_bracket;
+                    self.token.kind = .open_bracket;
                 },
                 ']' => {
                     self.step();
-                    self.token.kind = Token.Kind.close_bracket;
+                    self.token.kind = .close_bracket;
                 },
                 '#', ';' => {
                     self.token.flag = if (self.code_point == '#') Token.Flag.hash else Token.Flag.semi_colon;
@@ -174,7 +174,7 @@ pub const Lex = struct {
                             },
                         }
                     }
-                    self.token.kind = Token.Kind.comment;
+                    self.token.kind = .comment;
                 },
                 '"', '\'' => {
                     const quote = self.code_point;
@@ -187,7 +187,7 @@ pub const Lex = struct {
                             else => {
                                 if (self.code_point == quote) {
                                     self.step();
-                                    self.token.kind = Token.Kind.string;
+                                    self.token.kind = .string;
                                     self.token.flag = if (quote == '"') Token.Flag.double_quote else Token.Flag.single_quote;
                                     break :loop;
                                 }
@@ -196,7 +196,7 @@ pub const Lex = struct {
                     }
                 },
                 ':', '=' => {
-                    self.token.kind = Token.Kind.equal;
+                    self.token.kind = .equal;
                     self.token.flag = if (self.code_point == '=') Token.Flag.normal_equal else Token.Flag.colon_equal;
                     self.step();
                 },
@@ -207,7 +207,7 @@ pub const Lex = struct {
                         }
                         self.step();
                     }
-                    self.token.kind = Token.Kind.string;
+                    self.token.kind = .string;
                 },
             }
             self.token.end = if (self.index + 1 <= self.buffer.len) self.index - 1 else self.index;
@@ -222,7 +222,7 @@ pub fn Tokenizer(input: []const u8, allocator: Allocator) !ArrayList(Token) {
     var tokens = ArrayList(Token).init(allocator);
     lex.step();
     try lex.next();
-    while (lex.token.kind != Token.Kind.end_of_file) {
+    while (lex.token.kind != .end_of_file) {
         try tokens.append(lex.token);
         try lex.next();
     }

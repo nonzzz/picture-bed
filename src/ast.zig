@@ -17,17 +17,9 @@ pub const Loc = struct {
     }
 };
 
-const NodeLoc = struct {
-    start: Loc,
-    end: Loc,
-};
-
 pub const Node = struct {
     kind: NodeKind,
-    loc: NodeLoc = NodeLoc{
-        .start = undefined,
-        .end = undefined,
-    },
+    loc: Loc,
     pub const NodeKind = enum(u3) {
         pairs,
         section,
@@ -41,6 +33,7 @@ pub const Node = struct {
         },
         decl: Identifer = undefined,
         init: Identifer = undefined,
+        flag: lex.Token.Flag = lex.Token.Flag.none,
     };
     pub const Section = struct {
         base: Node = .{
@@ -73,8 +66,7 @@ pub const Node = struct {
         },
         value: []const u8,
         pub inline fn create_loc(self: *Identifer, line: usize, start: usize, end: usize) void {
-            self.base.loc.start = Loc.create(line, start, end);
-            self.base.loc.end = Loc.create(line, start, end);
+            self.base.loc = Loc.create(line, start, end);
         }
     };
 
