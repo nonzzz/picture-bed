@@ -79,7 +79,7 @@ fn build_zig_ini_test(
 ) void {
     const zig_init_test = b.addTest(.{
         .root_source_file = b.path("src/test.zig"),
-        .target = options.target,
+        .target = b.resolveTargetQuery(.{}),
         .optimize = options.optimize,
     });
     const run_ini_unit_test = b.addRunArtifact(zig_init_test);

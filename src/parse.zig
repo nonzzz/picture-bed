@@ -75,11 +75,8 @@ pub const Parse = struct {
         const node = try self.allocator.create(Node.Pairs);
         errdefer self.allocator.destroy(node);
         node.* = .{};
-        const key_token = self.current();
-        const key_raw = self.decode_text();
-        node.base.loc = Loc.create(key_token.line_number, key_token.start, key_token.end);
 
-        self.advance();
+        node.decl = self.consume_identifer();
 
         loop: while (true) {
             switch (self.current().kind) {
@@ -95,33 +92,10 @@ pub const Parse = struct {
                 .equal => {
                     _ = self.eat(.whitespace);
                     _ = self.eat(.string);
-                    const value_begin = self.current();
-                    while (true) {
-                        switch (self.peek().kind) {
-                            .break_line => break,
-                            .end_of_file => break,
-                            .comment => break,
-                            else => {
-                                if (value_begin.kind == .string and (value_begin.flag == .single_quote or value_begin.flag == .double_quote)) {
-                                    break;
-                                }
-                                self.advance();
-                            },
-                        }
-                    }
-                    const value_end = self.current();
-                    const value_raw = self.source[value_begin.start..(value_end.end)];
-                    node.base.loc.end = value_end.end;
-                    node.decl = Node.Identifer{
-                        .value = key_raw,
-                    };
-                    node.decl.create_loc(node.base.loc.line, key_token.start, key_token.end);
-                    node.init = Node.Identifer{
-                        .value = value_raw,
-                    };
-                    node.init.create_loc(node.base.loc.line, value_begin.start, value_end.end);
-                    node.flag = value_begin.flag;
-                    self.advance();
+                    node.flag = self.current().flag;
+                    node.init = self.consume_identifer();
+
+                    node.base.loc = Loc.create(node.decl.base.loc.line, node.decl.base.loc.start, node.init.base.loc.end);
                     break :loop;
                 },
                 .whitespace => self.advance(),
@@ -173,19 +147,14 @@ pub const Parse = struct {
         }
 
         node.* = .{};
-        node.name = Node.Identifer{
-            .value = self.decode_text(),
-        };
-        node.name.create_loc(start_token.line_number, self.current().start, self.current().end);
-        node.base.loc = Loc.create(start_token.line_number, start_token.start, self.current().end);
-
-        _ = self.eat(.whitespace);
+        node.name = self.consume_identifer();
+        if (self.current().kind == .whitespace) {
+            self.advance();
+        }
         self.advance();
-
         if (self.peek().kind == .close_bracket) {
             return error.InvalidSection;
         }
-        self.advance();
         loop: while (true) {
             switch (self.current().kind) {
                 .break_line => {
@@ -211,8 +180,45 @@ pub const Parse = struct {
                 },
             }
         }
-
+        node.base.loc = Loc.create(start_token.line_number, start_token.start, self.current().end);
         return &node.base;
+    }
+
+    inline fn consume_identifer(self: *Self) Node.Identifer {
+        const start_token = self.current();
+        while (true) {
+            switch (self.peek().kind) {
+                .break_line => break,
+                .end_of_file => break,
+                .comment => break,
+                .open_bracket => break,
+                .equal => break,
+                .close_bracket => break,
+                .whitespace => {
+                    self.advance();
+                    if (self.peek().kind == .equal or self.peek().kind == .close_bracket) {
+                        self.pos -= 1;
+                        break;
+                    }
+                },
+                else => {
+                    if (start_token.kind == .string and (start_token.flag == .single_quote or start_token.flag == .double_quote)) {
+                        break;
+                    }
+                    self.advance();
+                },
+            }
+        }
+        const end_token = self.current();
+        const node = Node.Identifer{
+            .base = .{
+                .kind = .identifer,
+                .loc = Loc.create(start_token.line_number, start_token.start, end_token.end),
+            },
+            .value = self.source[start_token.start..end_token.end],
+        };
+        self.advance();
+        return node;
     }
 
     inline fn advance(self: *Self) void {
