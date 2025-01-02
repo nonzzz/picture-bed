@@ -29,5 +29,4 @@ function loadWASM() {
   const bytes = Uint8Array.from(atob(zigIni), (x) => x.charCodeAt(0))
   const compiled = new WebAssembly.Module(bytes)
   wasm = new WebAssembly.Instance(compiled).exports as typeof wasm
-  return
 }

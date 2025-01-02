@@ -48,7 +48,7 @@ fn build_wasm_bindings(
 ) void {
     const wasm_bindings_generate = b.addExecutable(.{
         .name = "zig-ini",
-        .root_source_file = b.path("bindings/wasm/wasm_bindings.zig"),
+        .root_source_file = b.path("bindings/wasm/src/wasm_bindings.zig"),
         .target = options.target,
         .optimize = .ReleaseSmall,
     });
