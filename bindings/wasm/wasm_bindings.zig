@@ -7,7 +7,7 @@ export fn format(s: [*]u8, len: usize, cap: usize) i32 {
     _ = cap; // autofix
     const input = s[0..len];
     var parser = ini.Parse.init(wasm_alloc);
-    var printer = ini.Printer.init(wasm_alloc);
+    var printer = ini.Printer.init(wasm_alloc, .{});
     defer {
         parser.deinit();
         printer.deinit();

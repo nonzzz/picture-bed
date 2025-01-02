@@ -3,7 +3,7 @@ const builtin = @import("builtin");
 
 // zig build system guide
 // https://ziglang.org/learn/build-system/
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
 
     // All top-level steps you can invoke on the command line.
 
@@ -11,18 +11,21 @@ pub fn build(b: *std.Build) void {
         .zig_ini_test = b.step("zig-ini:test", "Run zig-ini unit test"),
         .bindings_wasm = b.step("bindings:wasm", "Build wasm bindings"),
     };
-    const target = b.standardTargetOptions(.{});
+
     const optimize = b.standardOptimizeOption(.{});
     const zig_ini_module = build_zig_ini_module(b);
     build_wasm_bindings(b, build_steps.bindings_wasm, .{
         .zig_ini_module = zig_ini_module,
-        .target = target,
+        .target = try resolve_target(b, .{
+            .cpu_arch = .wasm32,
+            .os_tag = .freestanding,
+        }),
         .optimize = optimize,
     });
 
     build_zig_ini_test(b, build_steps.zig_ini_test, .{
         .zig_ini_module = zig_ini_module,
-        .target = target,
+        .target = try resolve_target(b, .{}),
         .optimize = optimize,
     });
 }
@@ -46,10 +49,7 @@ fn build_wasm_bindings(
     const wasm_bindings_generate = b.addExecutable(.{
         .name = "zig-ini",
         .root_source_file = b.path("bindings/wasm/wasm_bindings.zig"),
-        .target = b.resolveTargetQuery(.{
-            .os_tag = .freestanding,
-            .cpu_arch = .wasm32,
-        }),
+        .target = options.target,
         .optimize = .ReleaseSmall,
     });
 
@@ -57,7 +57,15 @@ fn build_wasm_bindings(
     wasm_bindings_generate.rdynamic = true;
     wasm_bindings_generate.entry = .disabled;
 
-    step_wasm_bindings.dependOn(&b.addInstallArtifact(wasm_bindings_generate, .{}).step);
+    step_wasm_bindings.dependOn(&b.addInstallArtifact(wasm_bindings_generate, .{
+        .dest_dir = .{
+            .override = .{ .custom = b.dupePath("bindings/wasm") },
+        },
+    }).step);
+
+    var write_build_script = b.addSystemCommand(&.{ "node", "./bindings/wasm/esbuild.js" });
+
+    step_wasm_bindings.dependOn(&write_build_script.step);
 }
 
 fn build_zig_ini_test(
@@ -78,18 +86,31 @@ fn build_zig_ini_test(
     step_zig_ini_test.dependOn(&run_ini_unit_test.step);
 }
 
-//  !std.Build.ResolvedTarget
-// fn resolve_target(b: *std.Build) std.Build.ResolvedTarget {
-//     const targets: []const std.Target.Query = &.{
-//         .{ .cpu_arch = .aarch64, .os_tag = .macos },
-//         .{ .cpu_arch = .x86_64, .os_tag = .linux },
-//         .{ .cpu_arch = .x86_64, .os_tag = .windows },
-//         .{ .cpu_arch = .aarch64, .os_tag = .windows },
-//         .{ .cpu_arch = .wasm32, .os_tag = .freestanding },
-//     };
-//     for (targets) |query| {
-//         if (builtin.target.os.tag == query.os_tag and builtin.target.cpu.arch == query.cpu_arch) {
-//             return b.resolveTargetQuery(query);
-//         }
-//     }
-// }
+fn resolve_target(b: *std.Build, target_requested: std.Target.Query) !std.Build.ResolvedTarget {
+    var target: std.Target.Query = .{
+        .cpu_arch = builtin.target.cpu.arch,
+        .os_tag = builtin.target.os.tag,
+    };
+
+    if (target_requested.cpu_arch) |cpu_arch| {
+        target.cpu_arch = cpu_arch;
+    }
+
+    if (target_requested.os_tag) |os_tag| {
+        target.os_tag = os_tag;
+    }
+
+    const targets: []const std.Target.Query = &.{
+        .{ .cpu_arch = .aarch64, .os_tag = .macos },
+        .{ .cpu_arch = .x86_64, .os_tag = .linux },
+        .{ .cpu_arch = .x86_64, .os_tag = .windows },
+        .{ .cpu_arch = .aarch64, .os_tag = .windows },
+        .{ .cpu_arch = .wasm32, .os_tag = .freestanding },
+    };
+    for (targets) |query| {
+        if (query.cpu_arch == target.cpu_arch and query.os_tag == target.os_tag) {
+            return b.resolveTargetQuery(query);
+        }
+    }
+    return error.UnsupportedTarget;
+}

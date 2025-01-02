@@ -4,3 +4,5 @@
 *.pdb
 node_modules
 .DS_Store
+dist
+zig-out/*

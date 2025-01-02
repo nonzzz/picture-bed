@@ -1,11 +1,12 @@
 const esbuild = require('esbuild')
 const fs = require('fs')
+const path = require('path')
 
-const wasm = fs.readFileSync('./zig-ini.wasm').toString('base64')
+const wasm = fs.readFileSync(path.join(__dirname, '..', '..', 'zig-out/bindings/wasm/zig-ini.wasm')).toString('base64')
 esbuild.buildSync({
   define: {
     zigIni: JSON.stringify(wasm)
   },
-  outdir: 'dist',
-  entryPoints: ['src/index.ts']
+  outdir: path.join(__dirname, 'dist'),
+  entryPoints: [path.join(__dirname, 'src', 'index.ts')]
 })
