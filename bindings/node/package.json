@@ -1,0 +1,6 @@
+{
+  "name": "@zig-ini/node",
+  "devDependencies": {
+    "@types/node": "^22.10.3"
+  }
+}

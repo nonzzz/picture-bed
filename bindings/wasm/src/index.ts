@@ -28,9 +28,9 @@ export function format(input: string, options?: FormatOptions): string {
   }
   options = { ...defaultOptions, ...options }
 
-  const parsedOptions = Object.entries(options).reduce((acc, [key, value]) => {
+  const parsedOptions = Object.entries(options).reduce((acc, [key, value]: [string, string]) => {
     return { ...acc, [toSnakeCase(key)]: value }
-  }, {})
+  }, {} as Record<string, string>)
 
   const memoryView = new Uint8Array(wasm.memory.buffer)
   const { written } = TextEncode.encodeInto(input, memoryView)
